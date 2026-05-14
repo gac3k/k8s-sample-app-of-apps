@@ -13,6 +13,7 @@ spec:
     - https://argoproj.github.io/argo-helm
     - https://helm.releases.hashicorp.com
     - https://charts.external-secrets.io
+    - https://releases.rancher.com/server-charts/latest
   destinations:
     - server: https://kubernetes.default.svc
       namespace: '*'

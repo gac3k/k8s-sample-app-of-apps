@@ -1,0 +1,50 @@
+rancher:
+  # Public HTTP URL (Traefik Ingress, no TLS) — required so Rancher generates correct links.
+  hostname: rancher.localhost
+
+  # Terminate TLS outside this chart (Ingress speaks HTTP to Rancher on port 80).
+  # Avoids cert-manager / ingress TLS on *.localhost for local POC.
+  tls: external
+
+  replicas: 1
+
+  # Empty: do not let the subchart create bootstrap-secret (bootstrap comes from Vault → ExternalSecret).
+  bootstrapPassword: ""
+
+  extraEnv:
+    - name: CATTLE_SERVER_URL
+      value: http://rancher.localhost
+    - name: CATTLE_BOOTSTRAP_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          # Must match rancherBootstrapExternalSecret.secretName / secretKey below.
+          name: rancher-bootstrap-password
+          key: bootstrapPassword
+
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    path: /
+    pathType: Prefix
+    servicePort: 80
+    tls:
+      source: secret
+      secretName: tls-rancher-ingress
+
+  networkExposure:
+    type: ingress
+
+# Vault → Secret for Rancher first-login bootstrap (CATTLE_BOOTSTRAP_PASSWORD). Requires
+# ClusterSecretStore vault-backend (helm/.../vault-integration).
+rancherBootstrapExternalSecret:
+  # Set enabled: false only if you set rancher.bootstrapPassword instead (subchart creates bootstrap-secret).
+  enabled: true
+  name: rancher-bootstrap-password-es
+  secretName: rancher-bootstrap-password
+  secretKey: bootstrapPassword
+  refreshInterval: 15m
+  clusterSecretStore: vault-backend
+  syncWave: "10"
+  vault:
+    path: secret/rancher/bootstrap
+    property: bootstrapPassword

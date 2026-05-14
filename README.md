@@ -55,9 +55,11 @@ usually resolve to loopback):
 | ---------- | ------------------------ |
 | Argo CD UI | http://argocd.localhost  |
 | Vault UI   | http://vault.localhost   |
+| Rancher UI | http://rancher.localhost |
 | Sample app | http://sample-app.localhost |
 
-Argo CD server is configured for **HTTP behind the Ingress** (`server.insecure`
+**Rancher (POC):** `tls: external` + HTTP Ingress (like Argo CD here). There is **no** supported fully anonymous UI: the first visit uses the **bootstrap password** stored in Vault at **`secret/rancher/bootstrap`** (field **`bootstrapPassword`**), synced into **`rancher/rancher-bootstrap-password`** by External Secrets (see `helm/.../rancher/rancher`), then you create the admin user and log in as usual. Seed Vault before expecting Rancher pods to start (see **Vault** below).
+
 + `configs.cm.url`); this is for local demos only.
 
 ## Layout
@@ -76,6 +78,8 @@ helm/
       sample-app/                       # wraps charts/service (Helm dep)
     vault/
       vault/                            # HashiCorp Vault (dev mode, POC)
+    rancher/
+      rancher/                          # Rancher Manager (official chart, POC)
     external-secrets/
       external-secrets/                 # External Secrets Operator + CRDs
       vault-integration/              # ClusterSecretStore + optional demo ES
@@ -102,6 +106,7 @@ Each leaf directory under `helm/<cluster>/<namespace>/<app>` becomes one
 | --------------------------------------------- | ----------------------------------------- | ---------------- |
 | `helm/in-cluster/argocd/argocd`               | `argocd-argocd-in-cluster`                | `argocd`         |
 | `helm/in-cluster/argocd/argocd-image-updater` | `argocd-image-updater-argocd-in-cluster`  | `argocd`         |
+| `helm/in-cluster/rancher/rancher`             | `rancher-rancher-in-cluster`              | `rancher`        |
 | `helm/in-cluster/vault/vault`                 | `vault-vault-in-cluster`                  | `vault`          |
 | `helm/in-cluster/external-secrets/external-secrets` | `external-secrets-external-secrets-in-cluster` | `external-secrets` |
 | `helm/in-cluster/external-secrets/vault-integration` | `vault-integration-external-secrets-in-cluster` | `external-secrets` |
@@ -237,6 +242,12 @@ kubectl exec -i -n vault vault-0 -- vault kv put secret/argocd/credentials priva
 ```
 
 Use a deploy key with **read + write** to **`k8s-sample-app-of-apps`** (image-updater commits on **`main`**).
+
+**Rancher bootstrap password** (KV v2, field **`bootstrapPassword`**):
+
+```bash
+kubectl exec -i -n vault vault-0 -- vault kv put secret/rancher/bootstrap bootstrapPassword="choose-a-long-random-password"
+```
 
 **Optional demo secret** (unrelated to Git):
 
