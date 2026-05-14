@@ -3,35 +3,9 @@ argo-cd:
     enabled: true
 
   configs:
-    # Repositories that Argo CD is allowed to fetch from. Adding an entry here
-    # creates a Secret labeled `argocd.argoproj.io/secret-type: repository`.
-    # When a request matches no inline credentials, Argo CD falls back to a
-    # matching `credentialTemplate` (by URL prefix).
+    # The source-of-truth repo is public so no credentials are required.
+    # We still register it here for visibility in the Argo CD UI.
     repositories:
-      mindsec-app-of-apps:
-        url: git@github.com:Mindsec-io/mindsec-app-of-apps.git
+      k8s-sample-app-of-apps:
+        url: https://github.com/gac3k/k8s-sample-app-of-apps.git
         type: git
-        # No inline credentials here on purpose. The SSH key is provided
-        # out-of-band via the org-wide credential template (see below).
-
-    # Credential templates apply to any repository whose URL starts with the
-    # configured `url` value. The template below covers every repo in the
-    # Mindsec-io GitHub organisation accessed over SSH.
-    #
-    # IMPORTANT: do NOT inline `sshPrivateKey` here -- the value would land in
-    # plaintext inside this Git repository. Apply the secret out-of-band, for
-    # example with:
-    #
-    #     kubectl -n argocd apply -f bootstrap/argocd-repo-creds-example.yaml
-    #
-    # after editing that file to contain a real key. As long as the Secret
-    # carries the right `argocd.argoproj.io/secret-type: repo-creds` label and
-    # its `url` field matches `git@github.com:Mindsec-io`, Argo CD will pick it
-    # up automatically.
-    credentialTemplates: {}
-
-    # GitHub SSH host keys are bundled by the argo-cd chart out of the box, so
-    # `ssh.knownHosts` does not need to be customised. If you ever switch to
-    # GitHub Enterprise or a self-hosted forge, add its host keys here.
-    # ssh:
-    #   extraHosts: ""

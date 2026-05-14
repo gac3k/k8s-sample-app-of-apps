@@ -6,8 +6,11 @@ metadata:
 spec:
   description: Platform applications managed by Argo CD
   sourceRepos:
-    - git@github.com:Mindsec-io/*
-    - https://github.com/Mindsec-io/*
+    - https://github.com/gac3k/*
+    # argocd-image-updater needs to read tag info from ghcr.io; the image-updater
+    # registry is not a Git source so it is not listed here.
+    # Public Helm repos used as chart dependencies must be allow-listed too:
+    - https://argoproj.github.io/argo-helm
   destinations:
     - server: https://kubernetes.default.svc
       namespace: '*'

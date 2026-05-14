@@ -9,17 +9,22 @@ spec:
     - missingkey=error
   generators:
     - git:
-        repoURL: git@github.com:Mindsec-io/mindsec-app-of-apps.git
+        repoURL: https://github.com/gac3k/k8s-sample-app-of-apps.git
         revision: HEAD
         directories:
           - path: helm/*/*/*
+  # argocd-image-updater writes its tag overrides to spec.source.helm.parameters.
+  # Without this, every ApplicationSet reconciliation would clobber those writes.
+  ignoreApplicationDifferences:
+    - jsonPointers:
+        - /spec/source/helm/parameters
   template:
     metadata:
       name: '{{index .path.segments 3}}-{{index .path.segments 2}}-{{index .path.segments 1}}'
     spec:
       project: platform
       source:
-        repoURL: git@github.com:Mindsec-io/mindsec-app-of-apps.git
+        repoURL: https://github.com/gac3k/k8s-sample-app-of-apps.git
         targetRevision: HEAD
         path: '{{.path.path}}'
         helm:
@@ -33,4 +38,21 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
-
+  # Conditional structural overrides. templatePatch is merged on top of the
+  # base template after Go-template rendering. We use it to attach the
+  # argocd-image-updater annotations only to apps living under the `apps`
+  # namespace, where (by convention) the image lives at
+  # `ghcr.io/gac3k/k8s-<app-name>` and the wrapper chart exposes
+  # `service.image.repository` / `service.image.tag` (i.e. it depends on
+  # the local `charts/service` base chart).
+  templatePatch: |
+    {{- if eq (index .path.segments 2) "apps" }}
+    metadata:
+      annotations:
+        argocd-image-updater.argoproj.io/image-list: "app=ghcr.io/gac3k/k8s-{{ index .path.segments 3 }}"
+        argocd-image-updater.argoproj.io/app.update-strategy: "semver"
+        argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^\\d+\\.\\d+\\.\\d+$"
+        argocd-image-updater.argoproj.io/app.helm.image-name: "service.image.repository"
+        argocd-image-updater.argoproj.io/app.helm.image-tag: "service.image.tag"
+        argocd-image-updater.argoproj.io/write-back-method: "argocd"
+    {{- end }}

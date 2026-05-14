@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: git@github.com:Mindsec-io/mindsec-app-of-apps.git
+    repoURL: https://github.com/gac3k/k8s-sample-app-of-apps.git
     targetRevision: HEAD
     path: argocd/root
   destination:

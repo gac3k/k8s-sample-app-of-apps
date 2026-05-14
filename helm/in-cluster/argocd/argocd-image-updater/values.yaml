@@ -1,0 +1,38 @@
+argocd-image-updater:
+  # Image-updater is deployed in the same `argocd` namespace as argocd-server,
+  # so the upstream defaults (auto-discovery of argocd-server, gRPC, in-cluster
+  # service) work without overrides. If you ever move it elsewhere, pass the
+  # connection flags via `extraArgs`, e.g.:
+  #
+  # extraArgs:
+  #   - --argocd-server-addr
+  #   - argocd-server.argocd.svc.cluster.local:443
+  #   - --argocd-grpc-web
+
+  config:
+    log.level: info
+
+    # GHCR is supported by image-updater out of the box, but registering it
+    # explicitly lets us document the source and (later) wire in credentials
+    # for private packages.
+    registries:
+      - name: GitHub Container Registry
+        api_url: https://ghcr.io
+        prefix: ghcr.io
+        ping: true
+        default: false
+        insecure: false
+
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+  metrics:
+    enabled: false
+
+  serviceAccount:
+    create: true
