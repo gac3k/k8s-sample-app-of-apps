@@ -4,9 +4,11 @@ Minimal GitOps base for a local Kubernetes cluster + Argo CD, plus a reusable
 `service` Helm chart and a sample app wired up for automated image promotion
 via [argocd-image-updater](https://argocd-image-updater.readthedocs.io/).
 
-Source-of-truth repo:
-[`https://github.com/gac3k/k8s-sample-app-of-apps`](https://github.com/gac3k/k8s-sample-app-of-apps)
-(public, cloned anonymously over HTTPS &mdash; no SSH keys to manage).
+Source-of-truth Git remote (public HTTPS clone):
+
+`https://github.com/gac3k/k8s-sample-app-of-apps.git`
+
+Web UI: [github.com/gac3k/k8s-sample-app-of-apps](https://github.com/gac3k/k8s-sample-app-of-apps).
 
 ## Prerequisites
 
@@ -19,9 +21,26 @@ Source-of-truth repo:
 ```bash
 direnv allow
 devenv shell
-cluster-create       # imports /etc/rancher/k3s/k3s.yaml to .kube/k3s.yaml
-argocd-bootstrap     # helm-installs Argo CD + applies the root Application
+cluster-create
+argocd-bootstrap   # installs Argo CD and applies root (HTTPS clone; no deploy key for Argo CD)
 ```
+
+Argo CD and the ApplicationSet **clone over HTTPS** (public repo). **argocd-image-updater**
+commits tag bumps using **Git write-back** over **SSH**, with credentials in
+**`argocd/argocd-image-updater-git-ssh`**: only **`sshPrivateKey`**, synced from **Vault**
+path **`secret/argocd/credentials`** (field **`privateKey`**) via an **`ExternalSecret`**
+shipped with the **`helm/.../argocd/argocd-image-updater`** umbrella chart (namespace **`argocd`**). The
+**`ImageUpdater`** CR sets **`gitConfig.repository`** to the SSH URL so pushes match the
+deploy key. Write-back target: **`helmvalues:values.yaml`** on branch **`main`**.
+
+**Optional — seed the write-back secret before External Secrets has reconciled**
+(e.g. cold start):
+
+1. Install Argo CD and apply root: `argocd-bootstrap`.
+2. Put a Git **deploy key** with **read/write** to the app-of-apps repo into Vault, e.g.  
+   `kubectl exec -i -n vault vault-0 -- vault kv put secret/argocd/credentials privateKey=- < ./deploy-key.pem`
+3. **`argocd-seed-git-ssh-from-vault`** (reads from Vault; or set `ARGOCD_IMAGE_UPDATER_SSH_KEY_FILE`
+   to seed from a local PEM — Secret shape: **`sshPrivateKey`** only).
 
 After this, Argo CD self-manages: the root `Application` points at
 `argocd/root/`, which contains an `ApplicationSet` that discovers everything
@@ -52,7 +71,7 @@ helm/
   in-cluster/
     argocd/
       argocd/                           # umbrella for Argo CD itself
-      argocd-image-updater/             # umbrella for argocd-image-updater
+      argocd-image-updater/             # umbrella: updater + ExternalSecret (git push key)
     apps/
       sample-app/                       # wraps charts/service (Helm dep)
     vault/
@@ -122,10 +141,18 @@ images to track (no `argocd-image-updater.argoproj.io/*` annotations on
 `Application`). See the [application configuration](https://argocd-image-updater.readthedocs.io/en/stable/configuration/applications/) docs.
 
 This repo defines **`argocd/root/image-updater-apps.yaml`**: a single
-`ImageUpdater` in namespace **`argocd`** (the controller only sees
-`Application`s in that namespace), with **`writeBackConfig.method: argocd`**
-(imperative overrides on the `Application`, same effect as before). Helm paths
-for the wrapper chart are **`manifestTargets.helm.name`** /
+`ImageUpdater` in namespace **`argocd`** with
+**`writeBackConfig.method: git:secret:argocd/argocd-image-updater-git-ssh`**,
+**`gitConfig.repository`** set to the **SSH** remote, and **`gitConfig.branch`**
+**`main`**, so new image tags are **committed to Git** in
+**`helmvalues:values.yaml`** under each app chart (e.g.
+`helm/in-cluster/apps/sample-app/values.yaml`). That matches
+[Git write-back](https://argocd-image-updater.readthedocs.io/en/stable/basics/update-methods/).
+Argo CD still **clones over HTTPS**; only write-back uses the Vault-backed
+ **`sshPrivateKey`** in **`argocd-image-updater-git-ssh`**.
+
+Helm parameter paths for the wrapper chart remain **`manifestTargets.helm.name`**
+/
 **`manifestTargets.helm.tag`** &rarr; `service.image.repository` /
 `service.image.tag`.
 
@@ -139,18 +166,22 @@ Conventions:
   **`X.Y.Z`** (aligned with **semantic-release** in
   [`gac3k/k8s-sample-app`](https://github.com/gac3k/k8s-sample-app)).
 
-The `ApplicationSet` still declares **`ignoreApplicationDifferences`** for
-`/spec/source/helm/parameters` so periodic reconciliation does not wipe the
-overrides written by the updater.
+The ApplicationSet **does not** ignore Helm parameter drift on the
+`Application` object anymore: tags are persisted in **Git**, not only as
+imperative `Application` overrides.
 
 **Checklist so image-updater promotes tags**
 
-1. **`argocd-image-updater`** chart is synced; controller runs in **`argocd`** and **ImageUpdater CRD** is installed.
-2. **`ImageUpdater`** `metadata.namespace` is **`argocd`** (same as your `Application` resources).
-3. **`applicationRefs`** includes an entry for each app (correct **`namePattern`** and **`imageName`**).
-4. Registry holds **semver tags** matching **`allowTags`**; **`latest` alone** does not satisfy semver promotion.
-5. **GHCR** reachable; private repos need [registry auth](https://argocd-image-updater.readthedocs.io/en/stable/configuration/registries/) on the updater.
-6. Inspect **`kubectl get imageupdater -n argocd`** and the target **`Application`** for **`spec.source.helm.parameters`** (`service.image.tag`).
+1. **`argocd-image-updater-git-ssh`** exists in **`argocd`** with **`sshPrivateKey`**
+   (Vault → ExternalSecret or **`argocd-seed-git-ssh-from-vault`**) so **Git push**
+   for write-back works.
+2. **`argocd-image-updater`** chart is synced; **ImageUpdater CRD** installed.
+3. **`ImageUpdater`** `metadata.namespace` is **`argocd`**.
+4. **`applicationRefs`** includes an entry for each app (correct **`namePattern`** and **`imageName`**).
+5. Registry holds **semver tags** matching **`allowTags`**.
+6. **GHCR** reachable; private images need registry auth on the updater.
+7. Watch **`kubectl get imageupdater -n argocd`** and **Git commits** on **`main`**
+   updating **`service.image.tag`** inside the app `values.yaml`.
 
 ## Adding a new app
 
@@ -192,11 +223,19 @@ Three charts land in the cluster:
 
 1. **`helm/in-cluster/vault/vault`** &mdash; official [Vault Helm chart](https://github.com/hashicorp/vault-helm) in **dev mode** (in-memory storage, fixed root token `root`). Data is lost when the pod restarts; do not use beyond experiments.
 2. **`helm/in-cluster/external-secrets/external-secrets`** &mdash; [External Secrets Operator](https://external-secrets.io/) (installs CRDs, controller, webhook, cert-controller).
-3. **`helm/in-cluster/external-secrets/vault-integration`** &mdash; a `ClusterSecretStore` named `vault-backend` using **token auth** against `http://vault.vault.svc.cluster.local:8200`, plus a Kubernetes `Secret` `vault-root-token` in the `external-secrets` namespace holding that token (must match `vault.server.dev.devRootToken`).
+3. **`helm/in-cluster/external-secrets/vault-integration`** &mdash; `ClusterSecretStore` **`vault-backend`** (referenced by the image-updater **`ExternalSecret`**) plus `vault-root-token` in **`external-secrets`** for Vault token auth (must match `vault.server.dev.devRootToken`).
 
 Resources in `vault-integration` use Argo CD sync wave **10** so Vault and the operator can reconcile first. On a cold cluster you may still need to **retry** the `vault-integration` app once CRDs exist.
 
-**Seed a secret in Vault** (KV v2):
+**Git deploy key in Vault** (KV v2, field **`privateKey`**):
+
+```bash
+kubectl exec -i -n vault vault-0 -- vault kv put secret/argocd/credentials privateKey=- < /path/to/git-deploy-key.pem
+```
+
+Use a deploy key with **read + write** to **`k8s-sample-app-of-apps`** (image-updater commits on **`main`**).
+
+**Optional demo secret** (unrelated to Git):
 
 ```bash
 kubectl exec -n vault vault-0 -- vault kv put secret/demo password="hello-vault"

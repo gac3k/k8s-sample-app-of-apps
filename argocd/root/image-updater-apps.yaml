@@ -10,14 +10,23 @@ metadata:
   name: apps-gitops-images
   namespace: argocd
   annotations:
-    # Run after the argocd-image-updater release installs CRDs and the controller.
-    argocd.argoproj.io/sync-wave: "15"
+    # After ExternalSecret + argocd-image-updater CRDs.
+    argocd.argoproj.io/sync-wave: "16"
 spec:
   commonUpdateSettings:
     updateStrategy: semver
     allowTags: "regexp:^\\d+\\.\\d+\\.\\d+$"
+  # Git write-back: commits Helm values under each Application's chart path.
+  # Credentials: Secret named below must exist in this namespace (ExternalSecret
+  # in helm/.../argocd-image-updater; key sshPrivateKey).
+  # Ref: https://argocd-image-updater.readthedocs.io/en/stable/basics/update-methods/
   writeBackConfig:
-    method: argocd
+    method: "git:secret:argocd/argocd-image-updater-git-ssh"
+    gitConfig:
+      # Application sources use HTTPS; SSH URL here so write-back pushes with the deploy key.
+      repository: git@github.com:gac3k/k8s-sample-app-of-apps.git
+      branch: main
+      writeBackTarget: helmvalues:values.yaml
   applicationRefs:
     - namePattern: sample-app-apps-in-cluster
       images:

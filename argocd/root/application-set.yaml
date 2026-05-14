@@ -16,11 +16,6 @@ spec:
         revision: HEAD
         directories:
           - path: helm/*/*/*
-  # argocd-image-updater writes its tag overrides to spec.source.helm.parameters.
-  # Without this, every ApplicationSet reconciliation would clobber those writes.
-  ignoreApplicationDifferences:
-    - jsonPointers:
-        - /spec/source/helm/parameters
   template:
     metadata:
       name: '{{index .path.segments 3}}-{{index .path.segments 2}}-{{index .path.segments 1}}'

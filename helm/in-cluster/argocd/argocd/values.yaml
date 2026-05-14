@@ -18,12 +18,9 @@ argo-cd:
       server.insecure: "true"
       # Default git-generator poll interval when an ApplicationSet omits requeueAfterSeconds.
       applicationsetcontroller.requeue.after: 1m
-    # The source-of-truth repo is public so no credentials are required.
-    # We still register it here for visibility in the Argo CD UI.
-    repositories:
-      k8s-sample-app-of-apps:
-        url: https://github.com/gac3k/k8s-sample-app-of-apps.git
-        type: git
+    # Public Git clone is HTTPS; see ApplicationSet / root Application repoURL.
+    # Git push for image promotion uses a separate Secret (Vault → sshPrivateKey only),
+    # not an Argo CD repository credential.
 
   server:
     ingress:

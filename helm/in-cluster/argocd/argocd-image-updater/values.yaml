@@ -36,3 +36,17 @@ argocd-image-updater:
 
   serviceAccount:
     create: true
+
+# Umbrella-only: creates Secret for Git write-back. The ImageUpdater CR must use
+#   writeBackConfig.method: git:secret:<namespace>/<secretName>
+# (see argocd/root/image-updater-apps.yaml); no extra Helm key ties the controller to this Secret.
+gitWriteBackExternalSecret:
+  enabled: true
+  name: argocd-image-updater-git-writeback
+  secretName: argocd-image-updater-git-ssh
+  refreshInterval: 15m
+  clusterSecretStore: vault-backend
+  syncWave: "11"
+  vault:
+    path: secret/data/argocd/credentials
+    property: privateKey

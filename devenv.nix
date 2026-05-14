@@ -10,6 +10,7 @@
   env.DEFAULT_K3S_CONTEXT = "default";
   env.KUBECONFIG = "/home/dom/.kube/config-k3s";
   env.ARGOCD_NAMESPACE = "argocd";
+  env.ARGOCD_IMAGE_UPDATER_GIT_SECRET_NAME = "argocd-image-updater-git-ssh";
   env.ARGOCD_SERVER_LOCAL = "127.0.0.1:8080";
 
   packages = [
@@ -18,6 +19,7 @@
     pkgs.kubernetes-helm
     pkgs.argocd
     pkgs.kustomize
+    pkgs.jq
   ];
 
   scripts.cluster-create.exec = ''
@@ -93,6 +95,46 @@
     KUBECONFIG="''${KUBECONFIG_PATH}" kubectl --context "''${CONTEXT_NAME}" apply -f ./bootstrap/root-application.yaml
 
     echo "Done. You can port-forward Argo CD with: devenv shell -c 'argocd-port-forward'"
+  '';
+
+  scripts.argocd-apply-root.exec = ''
+    set -euo pipefail
+    CONTEXT_NAME="''${K3S_CONTEXT_OVERRIDE:-$DEFAULT_K3S_CONTEXT}"
+    KUBECONFIG_PATH="/home/dom/.kube/config-k3s"
+    KUBECONFIG="''${KUBECONFIG_PATH}" kubectl --context "''${CONTEXT_NAME}" apply -f ./bootstrap/root-application.yaml
+    echo "Applied bootstrap/root-application.yaml"
+  '';
+
+  scripts.argocd-seed-git-ssh-from-vault.exec = ''
+    set -euo pipefail
+
+    CONTEXT_NAME="''${K3S_CONTEXT_OVERRIDE:-$DEFAULT_K3S_CONTEXT}"
+    KUBECONFIG_PATH="/home/dom/.kube/config-k3s"
+    NS="''${ARGOCD_NAMESPACE}"
+    SECRET_NAME="''${ARGOCD_IMAGE_UPDATER_GIT_SECRET_NAME}"
+
+    PRIVATE_KEY=""
+    if [[ -n "''${ARGOCD_IMAGE_UPDATER_SSH_KEY_FILE:-}" ]]; then
+      PRIVATE_KEY="$(cat "''${ARGOCD_IMAGE_UPDATER_SSH_KEY_FILE}")"
+    else
+      if ! KUBECONFIG="''${KUBECONFIG_PATH}" kubectl --context "''${CONTEXT_NAME}" get pod -n vault vault-0 &>/dev/null; then
+        echo "Vault pod vault/vault-0 not found. Set ARGOCD_IMAGE_UPDATER_SSH_KEY_FILE to a local PEM or deploy Vault first."
+        exit 1
+      fi
+      PRIVATE_KEY="$(KUBECONFIG="''${KUBECONFIG_PATH}" kubectl --context "''${CONTEXT_NAME}" exec -n vault vault-0 -- \
+        env VAULT_TOKEN=root vault kv get -mount=secret -format=json argocd/credentials \
+        | jq -r '.data.data.privateKey')"
+      if [[ -z "$PRIVATE_KEY" || "$PRIVATE_KEY" == "null" ]]; then
+        echo "Could not read secret/argocd/credentials privateKey from Vault."
+        exit 1
+      fi
+    fi
+
+    KUBECONFIG="''${KUBECONFIG_PATH}" kubectl --context "''${CONTEXT_NAME}" -n "$NS" create secret generic "$SECRET_NAME" \
+      --from-literal=sshPrivateKey="$PRIVATE_KEY" \
+      --dry-run=client -o yaml \
+      | KUBECONFIG="''${KUBECONFIG_PATH}" kubectl --context "''${CONTEXT_NAME}" apply -f -
+    echo "Secret $NS/$SECRET_NAME applied (argocd-image-updater Git write-back only; sshPrivateKey)."
   '';
 
   scripts.argocd-port-forward.exec = ''
