@@ -4,28 +4,23 @@
 # registry tags match allowTags (see imageUpdaterGitOps in argocd-image-updater chart).
 service:
   fullnameOverride: sample-app
-
   image:
     repository: ghcr.io/gac3k/k8s-sample-app
-    tag: 1.0.0
+    tag: 1.1.0
     pullPolicy: IfNotPresent
-
   replicaCount: 1
   containerPort: 8080
-
   service:
     type: ClusterIP
     port: 80
     targetPort: http
-
   env:
-    - name: GREETINGS
-      value: "Greetings from the Mindsec GitOps cluster!"
-    - name: PAGE_COLOR
-      value: "#FFCC00"
-    - name: TEXT_COLOR
-      value: "#000080"
-
+  - name: GREETINGS
+    value: "Greetings from the Mindsec GitOps cluster!"
+  - name: PAGE_COLOR
+    value: "#FFCC00"
+  - name: TEXT_COLOR
+    value: "#000080"
   # In a real environment SUPER_SECRET_PASSWORD will be sourced from an
   # external secret backend (ExternalSecret, Vault, sealed-secret, etc.).
   # For this POC we store it inline in the chart's managed Secret so that
@@ -34,19 +29,17 @@ service:
     enabled: true
     data:
       SUPER_SECRET_PASSWORD: "hunter2-replace-me"
-
   ingress:
     enabled: true
     # k3s ships traefik by default. Set to "" or "nginx" if you replace it.
     className: traefik
     annotations: {}
     hosts:
-      - host: sample-app.localhost
-        paths:
-          - path: /
-            pathType: Prefix
+    - host: sample-app.localhost
+      paths:
+      - path: /
+        pathType: Prefix
     tls: []
-
   probes:
     liveness:
       enabled: true
@@ -66,7 +59,6 @@ service:
       periodSeconds: 5
       timeoutSeconds: 3
       failureThreshold: 3
-
   resources:
     requests:
       cpu: 50m
@@ -74,7 +66,6 @@ service:
     limits:
       cpu: 200m
       memory: 128Mi
-
   securityContext:
     runAsNonRoot: true
     runAsUser: 1001
