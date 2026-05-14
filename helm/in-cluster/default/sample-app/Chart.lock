@@ -1,0 +1,6 @@
+dependencies:
+- name: service
+  repository: file://../../../../charts/service
+  version: 0.1.0
+digest: sha256:e48e2141377bbe6fa3bc5650e2f73938a7328d96ac0912f084be990193bc59fe
+generated: "2026-05-14T12:22:09.840437509+02:00"

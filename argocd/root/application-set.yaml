@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: helm-directory-apps
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+  generators:
+    - git:
+        repoURL: git@github.com:Mindsec-io/mindsec-app-of-apps.git
+        revision: HEAD
+        directories:
+          - path: helm/*/*/*
+  template:
+    metadata:
+      name: '{{index .path.segments 3}}-{{index .path.segments 2}}-{{index .path.segments 1}}'
+    spec:
+      project: platform
+      source:
+        repoURL: git@github.com:Mindsec-io/mindsec-app-of-apps.git
+        targetRevision: HEAD
+        path: '{{.path.path}}'
+        helm:
+          releaseName: '{{index .path.segments 3}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{index .path.segments 2}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+

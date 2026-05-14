@@ -1,0 +1,84 @@
+# All values for the `service` dependency must be nested under `service:`.
+# To consume this chart from the org's published Docker image, push the
+# sample-app container image to Docker Hub and update `service.image.repository`
+# / `service.image.tag` accordingly.
+service:
+  fullnameOverride: sample-app
+
+  image:
+    repository: docker.io/mindsec/sample-app
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+  containerPort: 8080
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: http
+
+  env:
+    - name: GREETINGS
+      value: "Greetings from the Mindsec GitOps cluster!"
+    - name: PAGE_COLOR
+      value: "#FFCC00"
+    - name: TEXT_COLOR
+      value: "#000080"
+
+  # In a real environment SUPER_SECRET_PASSWORD will be sourced from an
+  # external secret backend (ExternalSecret, Vault, sealed-secret, etc.).
+  # For this POC we store it inline in the chart's managed Secret so that
+  # the env var is wired up the same way it eventually will be.
+  secret:
+    enabled: true
+    data:
+      SUPER_SECRET_PASSWORD: "hunter2-replace-me"
+
+  ingress:
+    enabled: true
+    # k3s ships traefik by default. Set to "" or "nginx" if you replace it.
+    className: traefik
+    annotations: {}
+    hosts:
+      - host: sample-app.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+  probes:
+    liveness:
+      enabled: true
+      httpGet:
+        path: /healthz
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readiness:
+      enabled: true
+      httpGet:
+        path: /readyz
+        port: http
+      initialDelaySeconds: 2
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]

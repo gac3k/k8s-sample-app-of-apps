@@ -1,0 +1,26 @@
+# Example Argo CD credential template for the Mindsec-io GitHub organisation.
+#
+# This file is INTENTIONALLY committed with a placeholder key so it is safe to
+# read. Do NOT replace the placeholder and commit the result -- copy the file
+# somewhere outside the repository, paste in a real SSH private key, and then:
+#
+#     kubectl -n argocd apply -f /path/to/your/copy.yaml
+#
+# Argo CD reads any Secret in the `argocd` namespace that carries the
+# `argocd.argoproj.io/secret-type: repo-creds` label and treats the `url` field
+# as a prefix match for repository URLs. So this single secret authenticates
+# every repository under `git@github.com:Mindsec-io/...`.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mindsec-io-repo-creds
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repo-creds
+stringData:
+  type: git
+  url: git@github.com:Mindsec-io
+  sshPrivateKey: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    REPLACE_WITH_A_REAL_SSH_PRIVATE_KEY_BEFORE_APPLYING_TO_THE_CLUSTER
+    -----END OPENSSH PRIVATE KEY-----

@@ -1,0 +1,12 @@
+apiVersion: v2
+name: service
+description: |
+  Reusable base chart for deploying a HTTP service. Renders Deployment, Service,
+  optional Ingress, optional Secret, ServiceAccount and HPA. Designed to be used
+  as a Helm dependency by per-app wrapper charts in this repository.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: Mindsec
+    url: https://github.com/Mindsec-io

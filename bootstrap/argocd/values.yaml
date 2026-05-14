@@ -1,0 +1,14 @@
+applicationSet:
+  enabled: true
+
+configs:
+  # Tell Argo CD about the source-of-truth repo at bootstrap time so the root
+  # Application can sync immediately after install. Credentials are supplied
+  # separately via an out-of-band Secret labeled
+  # `argocd.argoproj.io/secret-type: repo-creds` (see
+  # ../argocd-repo-creds-example.yaml).
+  repositories:
+    mindsec-app-of-apps:
+      url: git@github.com:Mindsec-io/mindsec-app-of-apps.git
+      type: git
+  credentialTemplates: {}

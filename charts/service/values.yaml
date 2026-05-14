@@ -1,0 +1,123 @@
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: nginx
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+replicaCount: 1
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+securityContext: {}
+  # runAsNonRoot: true
+  # runAsUser: 1000
+  # readOnlyRootFilesystem: true
+  # allowPrivilegeEscalation: false
+  # capabilities:
+  #   drop: ["ALL"]
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: http
+  annotations: {}
+
+containerPort: 8080
+
+# List of plain env vars. Each entry must follow corev1.EnvVar shape.
+# Examples:
+#   env:
+#     - name: FOO
+#       value: bar
+#     - name: BAR
+#       valueFrom:
+#         secretKeyRef:
+#           name: my-secret
+#           key: bar
+env: []
+
+# Inject env vars from one or more Secrets / ConfigMaps via envFrom.
+# Each entry: { secretRef: { name: x } } or { configMapRef: { name: y } }
+envFrom: []
+
+# Inline secret managed by this chart. Keys are env var names; values are plaintext
+# that Helm will base64-encode. The Secret name defaults to the fullname of the release.
+# When secret.enabled is true, every key here is automatically wired into the container
+# as an env var via envFrom (so SUPER_SECRET_PASSWORD shows up in the pod).
+secret:
+  enabled: false
+  annotations: {}
+  # Optional: override the generated Secret name.
+  name: ""
+  data: {}
+    # SUPER_SECRET_PASSWORD: "change-me"
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+    # - secretName: chart-example-tls
+    #   hosts:
+    #     - chart-example.local
+
+resources: {}
+  # limits:
+  #   cpu: 200m
+  #   memory: 256Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+probes:
+  liveness:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+extraVolumes: []
+extraVolumeMounts: []

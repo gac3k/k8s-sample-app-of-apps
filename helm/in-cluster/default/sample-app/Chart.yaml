@@ -1,0 +1,10 @@
+apiVersion: v2
+name: sample-app
+description: Sample app deployment using the in-repo `service` base chart.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: service
+    version: 0.1.0
+    repository: "file://../../../../charts/service"
