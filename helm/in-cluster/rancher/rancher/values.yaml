@@ -8,6 +8,15 @@ rancher:
 
   replicas: 1
 
+  # k3s/API aggregation can be slow to register v1.ext.cattle.io; avoids UI stuck on
+  # "API Aggregation not ready" during warm-up. Ref:
+  # https://ranchermanager.docs.rancher.com/api/extension-apiserver
+  aggregationRegistrationTimeout: 20m
+
+  startupProbe:
+    failureThreshold: 36
+    periodSeconds: 10
+
   # Empty: do not let the subchart create bootstrap-secret (bootstrap comes from Vault → ExternalSecret).
   bootstrapPassword: ""
 
@@ -30,6 +39,10 @@ rancher:
     tls:
       source: secret
       secretName: tls-rancher-ingress
+    extraAnnotations:
+      # Long-lived / WebSocket UI traffic; Traefik can otherwise look "not ready" from the browser.
+      traefik.ingress.kubernetes.io/router.priority: "100"
+      traefik.ingress.kubernetes.io/service.passHostHeader: "true"
 
   networkExposure:
     type: ingress

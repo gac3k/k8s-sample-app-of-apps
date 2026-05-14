@@ -58,8 +58,9 @@ usually resolve to loopback):
 | Rancher UI | http://rancher.localhost |
 | Sample app | http://sample-app.localhost |
 
-**Rancher (POC):** `tls: external` + HTTP Ingress (like Argo CD here). There is **no** supported fully anonymous UI: the first visit uses the **bootstrap password** stored in Vault at **`secret/rancher/bootstrap`** (field **`bootstrapPassword`**), synced into **`rancher/rancher-bootstrap-password`** by External Secrets (see `helm/.../rancher/rancher`), then you create the admin user and log in as usual. Seed Vault before expecting Rancher pods to start (see **Vault** below).
+**Rancher (POC):** `tls: external` + HTTP Ingress (like Argo CD here). There is **no** supported fully anonymous UI: the first visit uses the **bootstrap password** stored in Vault at **`secret/rancher/bootstrap`** (field **`bootstrapPassword`**), synced into **`rancher/rancher-bootstrap-password`** by External Secrets (see `helm/.../rancher/rancher`), then you create the admin user and log in as usual. Seed Vault before expecting Rancher pods to start (see **Vault** below). If the UI shows **API Aggregation not ready**, wait 2–6 minutes after pods are ready (first-time registration of `v1.ext.cattle.io` can be slow on a single node); the chart sets a longer `aggregationRegistrationTimeout` and startup probe for that. Use **`http://rancher.localhost`** (same host as **`CATTLE_SERVER_URL`**), not raw IP.
 
+Argo CD server is configured for **HTTP behind the Ingress** (`server.insecure`
 + `configs.cm.url`); this is for local demos only.
 
 ## Layout
