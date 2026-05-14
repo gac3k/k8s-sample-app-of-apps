@@ -56,7 +56,8 @@ imageUpdaterGitOps:
       namePattern: sample-app-apps-in-cluster
       images:
         - alias: app
-          imageName: ghcr.io/gac3k/k8s-sample-app:latest
+          # semver strategy: tag must be a semver constraint, not "latest".
+          imageName: ghcr.io/gac3k/k8s-sample-app:>=1.0.0
           manifestTargets:
             helm:
               name: service.image.repository

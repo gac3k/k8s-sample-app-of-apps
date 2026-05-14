@@ -164,7 +164,7 @@ Conventions:
   **`namePattern`** must match the Argo CD **`Application`** name the ApplicationSet generates, e.g. **`sample-app-apps-in-cluster`**);
 - each value has **`images`**: a list of **[argocd-image-updater image specs](https://argocd-image-updater.readthedocs.io/en/stable/configuration/applications/)**
   (multiple images per app supported); optional **`enabled: false`** skips that entry;
-- image **`ghcr.io/gac3k/k8s-<app-name>`** with initial tag (e.g. `latest`);
+- in **`images[].imageName`**, use a **semver constraint** in the tag (e.g. **`>=1.0.0`**, **`^1.0.0`**) — **not** **`latest`** — when **`updateStrategy`** is **`semver`**;
 - **`commonUpdateSettings`**: semver and **`allowTags`** restricting tags to
   **`X.Y.Z`** (aligned with **semantic-release** in
   [`gac3k/k8s-sample-app`](https://github.com/gac3k/k8s-sample-app)).
