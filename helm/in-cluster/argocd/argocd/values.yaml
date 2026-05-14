@@ -10,8 +10,14 @@ argo-cd:
     # Matches HTTP access via Ingress (Traefik terminates; server runs insecure inside the cluster).
     cm:
       url: http://argocd.localhost
+      # Repo-server revision cache; keep <= ApplicationSet git poll so new commits show up quickly.
+      # Ref: Git generator + cache note in Applicationset Generators-Git docs.
+      timeout.reconciliation: 60s
+      timeout.reconciliation.jitter: 15s
     params:
       server.insecure: "true"
+      # Default git-generator poll interval when an ApplicationSet omits requeueAfterSeconds.
+      applicationsetcontroller.requeue.after: 1m
     # The source-of-truth repo is public so no credentials are required.
     # We still register it here for visibility in the Argo CD UI.
     repositories:

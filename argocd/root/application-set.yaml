@@ -9,6 +9,9 @@ spec:
     - missingkey=error
   generators:
     - git:
+        # Poll Git for directory changes (default 180s). Ref:
+        # https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators-Git/#git-polling-interval
+        requeueAfterSeconds: 60
         repoURL: https://github.com/gac3k/k8s-sample-app-of-apps.git
         revision: HEAD
         directories:
