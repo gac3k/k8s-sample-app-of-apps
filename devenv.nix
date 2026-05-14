@@ -81,13 +81,13 @@
     KUBECONFIG="''${KUBECONFIG_PATH}" kubectl --context "''${CONTEXT_NAME}" create namespace "''${ARGOCD_NAMESPACE}" --dry-run=client -o yaml | KUBECONFIG="''${KUBECONFIG_PATH}" kubectl --context "''${CONTEXT_NAME}" apply -f -
 
     echo "Installing Argo CD (helm) as initial bootstrap"
-    helm repo add argo https://argoproj.github.io/argo-helm >/dev/null 2>&1 || true
-    helm repo update >/dev/null
-    helm upgrade --install argocd argo/argo-cd \
+    # Use the same umbrella chart that Argo CD will self-manage later, so the
+    # bootstrap state matches the steady state -- no separate bootstrap values file.
+    helm dependency build ./helm/in-cluster/argocd/argocd >/dev/null
+    helm upgrade --install argocd ./helm/in-cluster/argocd/argocd \
       --kube-context "''${CONTEXT_NAME}" \
       --namespace "''${ARGOCD_NAMESPACE}" \
-      --create-namespace \
-      --values ./bootstrap/argocd/values.yaml
+      --create-namespace
 
     echo "Applying root application (Argo manages itself + everything else)"
     KUBECONFIG="''${KUBECONFIG_PATH}" kubectl --context "''${CONTEXT_NAME}" apply -f ./bootstrap/root-application.yaml

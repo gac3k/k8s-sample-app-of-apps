@@ -41,14 +41,20 @@ helm/
       argocd-image-updater/             # umbrella for argocd-image-updater
     apps/
       sample-app/                       # wraps charts/service (Helm dep)
+    vault/
+      vault/                            # HashiCorp Vault (dev mode, POC)
+    external-secrets/
+      external-secrets/                 # External Secrets Operator + CRDs
+      vault-integration/              # ClusterSecretStore + optional demo ES
     default/
       hello/                            # tiny standalone configmap demo
 bootstrap/
-  root-application.yaml                 # bootstraps Argo CD via Helm install
-  argocd/values.yaml                    # initial Argo CD values (pre-ApplicationSet)
+  root-application.yaml                 # the root Application kubectl-applied
+                                        #  after the initial Argo CD install;
+                                        #  it points at argocd/root/
 argocd/
   root/
-    application-set.yaml                # discovers helm/**/*
+    application-set.yaml                # discovers helm/**/* once Argo is alive
     appproject.yaml                     # AppProject "platform"
 ```
 
@@ -63,6 +69,9 @@ Each leaf directory under `helm/<cluster>/<namespace>/<app>` becomes one
 | --------------------------------------------- | ----------------------------------------- | ---------------- |
 | `helm/in-cluster/argocd/argocd`               | `argocd-argocd-in-cluster`                | `argocd`         |
 | `helm/in-cluster/argocd/argocd-image-updater` | `argocd-image-updater-argocd-in-cluster`  | `argocd`         |
+| `helm/in-cluster/vault/vault`                 | `vault-vault-in-cluster`                  | `vault`          |
+| `helm/in-cluster/external-secrets/external-secrets` | `external-secrets-external-secrets-in-cluster` | `external-secrets` |
+| `helm/in-cluster/external-secrets/vault-integration` | `vault-integration-external-secrets-in-cluster` | `external-secrets` |
 | `helm/in-cluster/default/hello`               | `hello-default-in-cluster`                | `default`        |
 | `helm/in-cluster/apps/sample-app`             | `sample-app-apps-in-cluster`              | `apps`           |
 
@@ -138,6 +147,26 @@ reconciliation, the manifest declares
 
 4. Commit and push. The ApplicationSet picks it up automatically, with
    `argocd-image-updater` annotations applied.
+
+## Vault and External Secrets (POC only)
+
+Three charts land in the cluster:
+
+1. **`helm/in-cluster/vault/vault`** &mdash; official [Vault Helm chart](https://github.com/hashicorp/vault-helm) in **dev mode** (in-memory storage, fixed root token `root`). Data is lost when the pod restarts; do not use beyond experiments.
+2. **`helm/in-cluster/external-secrets/external-secrets`** &mdash; [External Secrets Operator](https://external-secrets.io/) (installs CRDs, controller, webhook, cert-controller).
+3. **`helm/in-cluster/external-secrets/vault-integration`** &mdash; a `ClusterSecretStore` named `vault-backend` using **token auth** against `http://vault.vault.svc.cluster.local:8200`, plus a Kubernetes `Secret` `vault-root-token` in the `external-secrets` namespace holding that token (must match `vault.server.dev.devRootToken`).
+
+Resources in `vault-integration` use Argo CD sync wave **10** so Vault and the operator can reconcile first. On a cold cluster you may still need to **retry** the `vault-integration` app once CRDs exist.
+
+**Seed a secret in Vault** (KV v2):
+
+```bash
+kubectl exec -n vault vault-0 -- vault kv put secret/demo password="hello-vault"
+```
+
+**Optional demo `ExternalSecret`:** in `vault-integration/values.yaml`, set `demoExternalSecret.enabled: true`. That creates an `ExternalSecret` in `external-secrets` that syncs `secret/data/demo` &rarr; a Kubernetes `Secret` (see the same file for names/paths). Commit after enabling.
+
+For production you would replace dev Vault and root-token auth with proper storage, TLS, and [Kubernetes auth](https://developer.hashicorp.com/vault/docs/auth/kubernetes) (or another method), and you would **not** store long-lived root tokens in Git&mdash;use sealed secrets, SOPS, or a bootstrap job.
 
 ## Sample app
 

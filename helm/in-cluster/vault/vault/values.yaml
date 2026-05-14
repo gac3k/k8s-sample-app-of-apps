@@ -1,0 +1,21 @@
+# Dev/in-memory Vault — data is lost on pod restart. Do not use beyond experiments.
+# See https://developer.hashicorp.com/vault/docs/concepts/dev-server
+vault:
+  global:
+    tlsDisable: true
+
+  injector:
+    enabled: false
+
+  server:
+    dev:
+      enabled: true
+      devRootToken: root
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi

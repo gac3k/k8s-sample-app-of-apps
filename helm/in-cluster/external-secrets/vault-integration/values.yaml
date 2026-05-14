@@ -1,0 +1,22 @@
+# Namespace where External Secrets Operator runs (must match ApplicationSet target).
+esoNamespace: external-secrets
+
+vault:
+  # HTTP service from the official Vault chart (dev mode, tls disabled).
+  serverURL: http://vault.vault.svc.cluster.local:8200
+  # KV v2 mount name (not the full engine path).
+  kvMountPath: secret
+  # Must match Vault dev root token (see helm/in-cluster/vault/vault/values.yaml).
+  rootToken: root
+
+# After Vault is up, seed data so the demo can sync, e.g.:
+#   kubectl exec -n vault vault-0 -- vault kv put secret/demo password="hello-vault"
+demoExternalSecret:
+  enabled: false
+  name: vault-demo-sync
+  refreshInterval: 1m
+  remote:
+    path: secret/data/demo
+    property: password
+  targetSecretName: vault-demo-secret
+  targetSecretKey: demo-password

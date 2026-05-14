@@ -11,6 +11,8 @@ spec:
     # registry is not a Git source so it is not listed here.
     # Public Helm repos used as chart dependencies must be allow-listed too:
     - https://argoproj.github.io/argo-helm
+    - https://helm.releases.hashicorp.com
+    - https://charts.external-secrets.io
   destinations:
     - server: https://kubernetes.default.svc
       namespace: '*'
