@@ -27,6 +27,20 @@ After this, Argo CD self-manages: the root `Application` points at
 `argocd/root/`, which contains an `ApplicationSet` that discovers everything
 under `helm/<cluster-name>/<namespace>/<app-name>` and rolls it out.
 
+### Local UIs (Traefik / k3s)
+
+Ingress uses class **`traefik`** (k3s default). Hostnames (RFC 6761 `*.localhost`
+usually resolve to loopback):
+
+| Service    | URL                      |
+| ---------- | ------------------------ |
+| Argo CD UI | http://argocd.localhost  |
+| Vault UI   | http://vault.localhost   |
+| Sample app | http://sample-app.localhost |
+
+Argo CD server is configured for **HTTP behind the Ingress** (`server.insecure`
++ `configs.cm.url`); this is for local demos only.
+
 ## Layout
 
 ```
@@ -56,6 +70,7 @@ argocd/
   root/
     application-set.yaml                # discovers helm/**/* once Argo is alive
     appproject.yaml                     # AppProject "platform"
+    image-updater-apps.yaml             # ImageUpdater CR (argocd-image-updater v1.x)
 ```
 
 ## Conventions
@@ -99,24 +114,43 @@ git add helm/<cluster>/apps/<name>/Chart.lock helm/<cluster>/apps/<name>/charts
 The wrapper's `values.yaml` overrides keys under the `service:` namespace,
 exactly as you would override any Helm sub-chart.
 
-### Automated image promotion (argocd-image-updater)
+### Automated image promotion (argocd-image-updater v1.x)
 
-The `ApplicationSet` attaches `argocd-image-updater.argoproj.io/...`
-annotations to every Application whose namespace segment is `apps`. The
-convention is:
+Since [v1.0](https://argocd-image-updater.readthedocs.io/en/stable/), configuration is **CRD-based**:
+an **`ImageUpdater`** resource selects Argo CD `Application`s and declares which
+images to track (no `argocd-image-updater.argoproj.io/*` annotations on
+`Application`). See the [application configuration](https://argocd-image-updater.readthedocs.io/en/stable/configuration/applications/) docs.
 
-- image lives at `ghcr.io/gac3k/k8s-<app-name>`
-- semver tags (`X.Y.Z`) are produced by
-  [semantic-release](https://github.com/semantic-release/semantic-release)
-  running in the source repository (see
-  [`gac3k/k8s-sample-app`](https://github.com/gac3k/k8s-sample-app))
-- `argocd-image-updater` watches the registry and writes the latest
-  matching tag back to the Application as a Helm parameter override
-  (`service.image.tag`), without touching Git
+This repo defines **`argocd/root/image-updater-apps.yaml`**: a single
+`ImageUpdater` in namespace **`argocd`** (the controller only sees
+`Application`s in that namespace), with **`writeBackConfig.method: argocd`**
+(imperative overrides on the `Application`, same effect as before). Helm paths
+for the wrapper chart are **`manifestTargets.helm.name`** /
+**`manifestTargets.helm.tag`** &rarr; `service.image.repository` /
+`service.image.tag`.
 
-To prevent the ApplicationSet from reverting those overrides on each
-reconciliation, the manifest declares
-`spec.ignoreApplicationDifferences[].jsonPointers: [/spec/source/helm/parameters]`.
+Conventions:
+
+- one **`applicationRefs`** entry per app under `helm/.../apps/<name>/`;
+  **`namePattern`** matches the generated Application name
+  **`<name>-apps-<cluster>`** (e.g. `sample-app-apps-in-cluster`);
+- image **`ghcr.io/gac3k/k8s-<app-name>`** with initial tag (e.g. `latest`);
+- **`commonUpdateSettings`**: semver and **`allowTags`** restricting tags to
+  **`X.Y.Z`** (aligned with **semantic-release** in
+  [`gac3k/k8s-sample-app`](https://github.com/gac3k/k8s-sample-app)).
+
+The `ApplicationSet` still declares **`ignoreApplicationDifferences`** for
+`/spec/source/helm/parameters` so periodic reconciliation does not wipe the
+overrides written by the updater.
+
+**Checklist so image-updater promotes tags**
+
+1. **`argocd-image-updater`** chart is synced; controller runs in **`argocd`** and **ImageUpdater CRD** is installed.
+2. **`ImageUpdater`** `metadata.namespace` is **`argocd`** (same as your `Application` resources).
+3. **`applicationRefs`** includes an entry for each app (correct **`namePattern`** and **`imageName`**).
+4. Registry holds **semver tags** matching **`allowTags`**; **`latest` alone** does not satisfy semver promotion.
+5. **GHCR** reachable; private repos need [registry auth](https://argocd-image-updater.readthedocs.io/en/stable/configuration/registries/) on the updater.
+6. Inspect **`kubectl get imageupdater -n argocd`** and the target **`Application`** for **`spec.source.helm.parameters`** (`service.image.tag`).
 
 ## Adding a new app
 
@@ -145,8 +179,12 @@ reconciliation, the manifest declares
    helm dependency update helm/in-cluster/apps/<name>
    ```
 
-4. Commit and push. The ApplicationSet picks it up automatically, with
-   `argocd-image-updater` annotations applied.
+4. Commit and push. The ApplicationSet picks up the new app automatically.
+   Extend **`argocd/root/image-updater-apps.yaml`** with another
+   **`applicationRefs`** block (`namePattern` = `<name>-apps-in-cluster`,
+   `imageName` = `ghcr.io/gac3k/k8s-<name>:...`, same **`manifestTargets.helm`**
+   as `sample-app`) so [argocd-image-updater v1.x](https://argocd-image-updater.readthedocs.io/en/stable/)
+   tracks that Application.
 
 ## Vault and External Secrets (POC only)
 

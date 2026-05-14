@@ -1,0 +1,29 @@
+# Image promotion for Argo CD Applications (v1.x CR API — not annotation-based).
+# Ref: https://argocd-image-updater.readthedocs.io/en/stable/configuration/applications/
+#
+# The controller only considers Applications in the same namespace as this CR (argocd).
+# Add one applicationRefs entry per app under helm/.../apps/<name>/ (namePattern matches
+# the Application name: <name>-apps-<cluster>).
+apiVersion: argocd-image-updater.argoproj.io/v1alpha1
+kind: ImageUpdater
+metadata:
+  name: apps-gitops-images
+  namespace: argocd
+  annotations:
+    # Run after the argocd-image-updater release installs CRDs and the controller.
+    argocd.argoproj.io/sync-wave: "15"
+spec:
+  commonUpdateSettings:
+    updateStrategy: semver
+    allowTags: "regexp:^\\d+\\.\\d+\\.\\d+$"
+  writeBackConfig:
+    method: argocd
+  applicationRefs:
+    - namePattern: sample-app-apps-in-cluster
+      images:
+        - alias: app
+          imageName: ghcr.io/gac3k/k8s-sample-app:latest
+          manifestTargets:
+            helm:
+              name: service.image.repository
+              tag: service.image.tag

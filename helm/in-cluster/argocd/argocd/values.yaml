@@ -1,11 +1,30 @@
 argo-cd:
+  global:
+    # Used as default Ingress host for the Argo CD server chart template.
+    domain: argocd.localhost
+
   applicationSet:
     enabled: true
 
   configs:
+    # Matches HTTP access via Ingress (Traefik terminates; server runs insecure inside the cluster).
+    cm:
+      url: http://argocd.localhost
+    params:
+      server.insecure: "true"
     # The source-of-truth repo is public so no credentials are required.
     # We still register it here for visibility in the Argo CD UI.
     repositories:
       k8s-sample-app-of-apps:
         url: https://github.com/gac3k/k8s-sample-app-of-apps.git
         type: git
+
+  server:
+    ingress:
+      enabled: true
+      controller: generic
+      ingressClassName: traefik
+      hostname: argocd.localhost
+      path: /
+      pathType: Prefix
+      tls: false
