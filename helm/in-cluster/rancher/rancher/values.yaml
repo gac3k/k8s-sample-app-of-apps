@@ -34,13 +34,12 @@ rancher:
     enabled: true
     ingressClassName: traefik
     path: /
-    pathType: Prefix
+    pathType: ImplementationSpecific
     servicePort: 80
-    tls:
-      source: secret
-      secretName: tls-rancher-ingress
     extraAnnotations:
-      # Long-lived / WebSocket UI traffic; Traefik can otherwise look "not ready" from the browser.
+      # k3s Traefik: use only the HTTP entrypoint (usually "web") to avoid redirect to websecure.
+      # Do not set traefik.io/* on native Ingress unless your Traefik is v3+ and docs say so—broken routes → Traefik 404.
+      traefik.ingress.kubernetes.io/router.entrypoints: web
       traefik.ingress.kubernetes.io/router.priority: "100"
       traefik.ingress.kubernetes.io/service.passHostHeader: "true"
 
