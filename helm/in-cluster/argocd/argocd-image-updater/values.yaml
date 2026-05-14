@@ -37,9 +37,32 @@ argocd-image-updater:
   serviceAccount:
     create: true
 
-# Umbrella-only: creates Secret for Git write-back. The ImageUpdater CR must use
-#   writeBackConfig.method: git:secret:<namespace>/<secretName>
-# (see argocd/root/image-updater-apps.yaml); no extra Helm key ties the controller to this Secret.
+# Umbrella-only: ImageUpdater CR (same Helm release as CRDs). Per-workload config is
+# imageUpdaterGitOps.applications: a map (key = arbitrary slug, stable sort when rendering).
+imageUpdaterGitOps:
+  enabled: true
+  name: apps-gitops-images
+  syncWave: "16"
+  commonUpdateSettings:
+    updateStrategy: semver
+    allowTags: 'regexp:^\d+\.\d+\.\d+$'
+  git:
+    repository: git@github.com:gac3k/k8s-sample-app-of-apps.git
+    branch: main
+    writeBackTarget: helmvalues:values.yaml
+  applications:
+    # Map key = arbitrary slug (sortAlpha(keys) -> stable Helm output). Set enabled: false to skip.
+    sample-app:
+      namePattern: sample-app-apps-in-cluster
+      images:
+        - alias: app
+          imageName: ghcr.io/gac3k/k8s-sample-app:latest
+          manifestTargets:
+            helm:
+              name: service.image.repository
+              tag: service.image.tag
+
+# Umbrella-only: Secret for Git write-back; secretName must match writeBackConfig in ImageUpdater (templated).
 gitWriteBackExternalSecret:
   enabled: true
   name: argocd-image-updater-git-writeback

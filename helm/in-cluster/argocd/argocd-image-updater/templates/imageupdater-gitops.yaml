@@ -1,0 +1,28 @@
+{{- if .Values.imageUpdaterGitOps.enabled }}
+apiVersion: argocd-image-updater.argoproj.io/v1alpha1
+kind: ImageUpdater
+metadata:
+  name: {{ .Values.imageUpdaterGitOps.name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .Values.imageUpdaterGitOps.syncWave | quote }}
+spec:
+  commonUpdateSettings:
+    {{- toYaml .Values.imageUpdaterGitOps.commonUpdateSettings | nindent 4 }}
+  writeBackConfig:
+    method: {{ printf "git:secret:%s/%s" .Release.Namespace .Values.gitWriteBackExternalSecret.secretName | quote }}
+    gitConfig:
+      repository: {{ .Values.imageUpdaterGitOps.git.repository | quote }}
+      branch: {{ .Values.imageUpdaterGitOps.git.branch | quote }}
+      writeBackTarget: {{ .Values.imageUpdaterGitOps.git.writeBackTarget | quote }}
+  applicationRefs:
+{{- $apps := .Values.imageUpdaterGitOps.applications | default dict }}
+{{- range $slug := sortAlpha (keys $apps) }}
+{{- $cfg := index $apps $slug }}
+{{- if ($cfg.enabled | default true) }}
+    - namePattern: {{ $cfg.namePattern | quote }}
+      images:
+{{ toYaml $cfg.images | trim | indent 8 }}
+{{- end }}
+{{- end }}
+{{- end }}

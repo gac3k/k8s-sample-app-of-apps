@@ -71,7 +71,7 @@ helm/
   in-cluster/
     argocd/
       argocd/                           # umbrella for Argo CD itself
-      argocd-image-updater/             # umbrella: updater + ExternalSecret (git push key)
+      argocd-image-updater/             # chart: controller CRDs + ImageUpdater CR + Vault ES
     apps/
       sample-app/                       # wraps charts/service (Helm dep)
     vault/
@@ -89,7 +89,6 @@ argocd/
   root/
     application-set.yaml                # discovers helm/**/* once Argo is alive
     appproject.yaml                     # AppProject "platform"
-    image-updater-apps.yaml             # ImageUpdater CR (argocd-image-updater v1.x)
 ```
 
 ## Conventions
@@ -140,16 +139,19 @@ an **`ImageUpdater`** resource selects Argo CD `Application`s and declares which
 images to track (no `argocd-image-updater.argoproj.io/*` annotations on
 `Application`). See the [application configuration](https://argocd-image-updater.readthedocs.io/en/stable/configuration/applications/) docs.
 
-This repo defines **`argocd/root/image-updater-apps.yaml`**: a single
-`ImageUpdater` in namespace **`argocd`** with
+This repo ships the **`ImageUpdater`** as part of **`helm/.../argocd/argocd-image-updater`**
+(same Helm release as CRDs and the controller) so the CR is not applied from
+**`argocd/root`** before **`ImageUpdater`** CRDs exist — otherwise the controller can log
+**`No ImageUpdater CRs to process`** while the CR never made it into etcd.
+
+Configuration lives under **`imageUpdaterGitOps`** and **`gitWriteBackExternalSecret`** in
+**`helm/in-cluster/argocd/argocd-image-updater/values.yaml`**. The rendered CR uses
 **`writeBackConfig.method: git:secret:argocd/argocd-image-updater-git-ssh`**,
-**`gitConfig.repository`** set to the **SSH** remote, and **`gitConfig.branch`**
-**`main`**, so new image tags are **committed to Git** in
-**`helmvalues:values.yaml`** under each app chart (e.g.
+**`gitConfig.repository`** set to the **SSH** remote, and **`gitConfig.branch`** **`main`**,
+so new image tags are **committed to Git** in **`helmvalues:values.yaml`** under each app chart (e.g.
 `helm/in-cluster/apps/sample-app/values.yaml`). That matches
 [Git write-back](https://argocd-image-updater.readthedocs.io/en/stable/basics/update-methods/).
-Argo CD still **clones over HTTPS**; only write-back uses the Vault-backed
- **`sshPrivateKey`** in **`argocd-image-updater-git-ssh`**.
+Argo CD still **clones over HTTPS**; only write-back uses the Vault-backed **`sshPrivateKey`** in **`argocd-image-updater-git-ssh`**.
 
 Helm parameter paths for the wrapper chart remain **`manifestTargets.helm.name`**
 /
@@ -158,9 +160,10 @@ Helm parameter paths for the wrapper chart remain **`manifestTargets.helm.name`*
 
 Conventions:
 
-- one **`applicationRefs`** entry per app under `helm/.../apps/<name>/`;
-  **`namePattern`** matches the generated Application name
-  **`<name>-apps-<cluster>`** (e.g. `sample-app-apps-in-cluster`);
+- one entry per workload under **`imageUpdaterGitOps.applications`** (map key is only a label;
+  **`namePattern`** must match the Argo CD **`Application`** name the ApplicationSet generates, e.g. **`sample-app-apps-in-cluster`**);
+- each value has **`images`**: a list of **[argocd-image-updater image specs](https://argocd-image-updater.readthedocs.io/en/stable/configuration/applications/)**
+  (multiple images per app supported); optional **`enabled: false`** skips that entry;
 - image **`ghcr.io/gac3k/k8s-<app-name>`** with initial tag (e.g. `latest`);
 - **`commonUpdateSettings`**: semver and **`allowTags`** restricting tags to
   **`X.Y.Z`** (aligned with **semantic-release** in
@@ -177,7 +180,8 @@ imperative `Application` overrides.
    for write-back works.
 2. **`argocd-image-updater`** chart is synced; **ImageUpdater CRD** installed.
 3. **`ImageUpdater`** `metadata.namespace` is **`argocd`**.
-4. **`applicationRefs`** includes an entry for each app (correct **`namePattern`** and **`imageName`**).
+4. **`imageUpdaterGitOps.applications`** includes that app: add a map entry with the right **`namePattern`**
+   and an **`images`** list (copy the shape of **`sample-app`**).
 5. Registry holds **semver tags** matching **`allowTags`**.
 6. **GHCR** reachable; private images need registry auth on the updater.
 7. Watch **`kubectl get imageupdater -n argocd`** and **Git commits** on **`main`**
@@ -211,8 +215,7 @@ imperative `Application` overrides.
    ```
 
 4. Commit and push. The ApplicationSet picks up the new app automatically.
-   Extend **`argocd/root/image-updater-apps.yaml`** with another
-   **`applicationRefs`** block (`namePattern` = `<name>-apps-in-cluster`,
+   In **`helm/in-cluster/argocd/argocd-image-updater/values.yaml`**, under **`imageUpdaterGitOps.applications`**, add a map entry (`namePattern` = `<name>-apps-in-cluster`,
    `imageName` = `ghcr.io/gac3k/k8s-<name>:...`, same **`manifestTargets.helm`**
    as `sample-app`) so [argocd-image-updater v1.x](https://argocd-image-updater.readthedocs.io/en/stable/)
    tracks that Application.

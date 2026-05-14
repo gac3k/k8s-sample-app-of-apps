@@ -1,7 +1,7 @@
 # All values for the `service` dependency must be nested under `service:`.
 #
 # The image tag stays "latest" until the ImageUpdater CR
-# (argocd/root/image-updater-apps.yaml) promotes a semver tag via an Argo CD
+# (helm/.../argocd-image-updater) promotes a semver tag via an Argo CD
 # Application parameter override (semantic-release produces tags in k8s-sample-app).
 service:
   fullnameOverride: sample-app
