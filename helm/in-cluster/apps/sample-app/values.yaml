@@ -6,7 +6,7 @@ service:
   fullnameOverride: sample-app
   image:
     repository: ghcr.io/gac3k/k8s-sample-app
-    tag: 1.1.0
+    tag: 1.2.0
     pullPolicy: IfNotPresent
   replicaCount: 1
   containerPort: 8080
@@ -15,12 +15,12 @@ service:
     port: 80
     targetPort: http
   env:
-    - name: GREETINGS
-      value: "Greetings from the Code&Pepper GitOps cluster!"
-    - name: PAGE_COLOR
-      value: "#FFCC00"
-    - name: TEXT_COLOR
-      value: "#000080"
+  - name: GREETINGS
+    value: "Greetings from the Code&Pepper GitOps cluster!"
+  - name: PAGE_COLOR
+    value: "#FFCC00"
+  - name: TEXT_COLOR
+    value: "#000080"
   # In a real environment SUPER_SECRET_PASSWORD will be sourced from an
   # external secret backend (ExternalSecret, Vault, sealed-secret, etc.).
   # For this POC we store it inline in the chart's managed Secret so that
@@ -35,10 +35,10 @@ service:
     className: traefik
     annotations: {}
     hosts:
-      - host: sample-app.localhost
-        paths:
-          - path: /
-            pathType: Prefix
+    - host: sample-app.localhost
+      paths:
+      - path: /
+        pathType: Prefix
     tls: []
   probes:
     liveness:
