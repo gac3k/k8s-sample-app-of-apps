@@ -51,17 +51,18 @@ under `helm/<cluster-name>/<namespace>/<app-name>` and rolls it out.
 Ingress uses class **`traefik`** (k3s default). Hostnames (RFC 6761 `*.localhost`
 usually resolve to loopback):
 
-| Service    | URL                      |
-| ---------- | ------------------------ |
-| Argo CD UI | http://argocd.localhost  |
-| Vault UI   | http://vault.localhost   |
-| Rancher UI | http://rancher.localhost |
+| Service    | URL                         |
+| ---------- | --------------------------- |
+| Argo CD UI | http://argocd.localhost     |
+| Vault UI   | http://vault.localhost      |
+| Rancher UI | http://rancher.localhost    |
 | Sample app | http://sample-app.localhost |
 
 **Rancher (POC):** `tls: external` + **HTTP-only** Traefik annotation `router.entrypoints: web` so the route does not attach only to `websecure` (see `ingress.extraAnnotations` in `helm/.../rancher/rancher/values.yaml`). There is **no** supported fully anonymous UI: the first visit uses the **bootstrap password** stored in Vault at **`secret/rancher/bootstrap`** (field **`bootstrapPassword`**), synced into **`rancher/rancher-bootstrap-password`** by External Secrets (see `helm/.../rancher/rancher`), then you create the admin user and log in as usual. Seed Vault before expecting Rancher pods to start (see **Vault** below). If the UI shows **API Aggregation not ready**, wait 2–6 minutes after pods are ready (first-time registration of `v1.ext.cattle.io` can be slow on a single node); the chart sets a longer `aggregationRegistrationTimeout` and startup probe for that. Use **`http://rancher.localhost`** (same host as **`CATTLE_SERVER_URL`**), not raw IP. **Traefik “404 page not found”** usually means no router matched: confirm the HTTP entrypoint is really named **`web`** (`kubectl get svc -n kube-system traefik -o yaml` / Traefik args), or temporarily remove `router.entrypoints` from `values.yaml` to see the default route. If you still get redirects to HTTPS at the edge, check the cluster Traefik chart (k3s `HelmChartConfig` / forwarded headers) — see [rancher/rancher#35088](https://github.com/rancher/rancher/issues/35088).
 
 Argo CD server is configured for **HTTP behind the Ingress** (`server.insecure`
-+ `configs.cm.url`); this is for local demos only.
+
+- `configs.cm.url`); this is for local demos only.
 
 ## Layout
 
@@ -103,16 +104,16 @@ argocd/
 Each leaf directory under `helm/<cluster>/<namespace>/<app>` becomes one
 `Application`:
 
-| Path                                          | Application name                          | Target namespace |
-| --------------------------------------------- | ----------------------------------------- | ---------------- |
-| `helm/in-cluster/argocd/argocd`               | `argocd-argocd-in-cluster`                | `argocd`         |
-| `helm/in-cluster/argocd/argocd-image-updater` | `argocd-image-updater-argocd-in-cluster`  | `argocd`         |
-| `helm/in-cluster/rancher/rancher`             | `rancher-rancher-in-cluster`              | `rancher`        |
-| `helm/in-cluster/vault/vault`                 | `vault-vault-in-cluster`                  | `vault`          |
-| `helm/in-cluster/external-secrets/external-secrets` | `external-secrets-external-secrets-in-cluster` | `external-secrets` |
+| Path                                                 | Application name                                | Target namespace   |
+| ---------------------------------------------------- | ----------------------------------------------- | ------------------ |
+| `helm/in-cluster/argocd/argocd`                      | `argocd-argocd-in-cluster`                      | `argocd`           |
+| `helm/in-cluster/argocd/argocd-image-updater`        | `argocd-image-updater-argocd-in-cluster`        | `argocd`           |
+| `helm/in-cluster/rancher/rancher`                    | `rancher-rancher-in-cluster`                    | `rancher`          |
+| `helm/in-cluster/vault/vault`                        | `vault-vault-in-cluster`                        | `vault`            |
+| `helm/in-cluster/external-secrets/external-secrets`  | `external-secrets-external-secrets-in-cluster`  | `external-secrets` |
 | `helm/in-cluster/external-secrets/vault-integration` | `vault-integration-external-secrets-in-cluster` | `external-secrets` |
-| `helm/in-cluster/default/hello`               | `hello-default-in-cluster`                | `default`        |
-| `helm/in-cluster/apps/sample-app`             | `sample-app-apps-in-cluster`              | `apps`           |
+| `helm/in-cluster/default/hello`                      | `hello-default-in-cluster`                      | `default`          |
+| `helm/in-cluster/apps/sample-app`                    | `sample-app-apps-in-cluster`                    | `apps`             |
 
 ### Apps under the `apps` namespace use the base `service` chart
 
